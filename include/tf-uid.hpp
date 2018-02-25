@@ -8,16 +8,37 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include "doulci.hpp"
 
 /****************** xcept codes ***********************/
 #define EXCEPTION_TFUID_UNDEFINED 	-1
 #define EXCEPTION_TFUID_CREATION 	1000
 #define EXCEPTION_TFUID_ALREADY_EXISTS  2000
 
+// maximum threads, see doulci.hpp
+constexpr auto MAX_THREAD = static_cast<int>(doulci::max_cap_threads());
+
 namespace doulci
 {
 	namespace sys
 	{
+		template<class A>
+		struct tf_content
+		{
+			A *content;
+			tf_content() { content = new A(); }
+			virtual ~tf_content() { delete content; }
+			virtual const A& get_content() { static A x(*content); return x; }
+		};
+		template<int N>
+		struct tf_limit
+		{
+			static const int limit()
+			{
+				return N;
+			}
+		};
+
 		// Exception class for problems occurring with the `temp_uid` class
 		class exception_tfuid : public std::exception
 		{
@@ -131,27 +152,12 @@ namespace doulci
 				handle_existent = true;
 			}
 
-			bool are_uids_same(int *ival)
-			{
-				int a, b, c;
-				if (ival == nullptr)
-				{
-					c = this->creator_uid;
-				}
-				else
-				{
-					c = *ival;
-				}
-				a = c;
-				b = getuid();
-
-				return (a == b);
-			}
-
 			std::string fqn_path;
 			std::string file_name;
 			int creator_uid;
 			bool handle_existent;
+
+			tf_content<tf_limit<MAX_THREAD>>	thread_limit; // line 1
 		private:
 			std::fstream file_handle;
 		};
