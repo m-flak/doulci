@@ -1,3 +1,15 @@
+/** 
+ *  @file    tf-uid.hpp
+ *  @author  Matthew E. Kehrer <mekehre@rdwr.pw>
+ * 
+ * @brief Implements a TEMPORARY FILE for LOCKING purposes and such what not.
+ * 
+ * @section Low-Down
+ * 
+ * Implements the functionality for locking, process spawn control via __user-id lockfiles__
+ * __DOULCI__ utilizes threading verses using fork() and friends. We don't want our server to
+ * be forked senselessly in the event of malicious attacker.
+ */
 #ifndef _TF_UID_HPP_
 #define _TF_UID_HPP_
 
@@ -10,23 +22,45 @@
 #include <errno.h>
 #include "doulci.hpp"
 
+/*@{*/
 /****************** xcept codes ***********************/
 #define EXCEPTION_TFUID_UNDEFINED 	-1
 #define EXCEPTION_TFUID_CREATION 	1000
 #define EXCEPTION_TFUID_ALREADY_EXISTS  2000
+/*@}*/
 
-// maximum threads, see doulci.hpp
+/*! maximum threads
+ * @see doulci.hpp
+ */
 constexpr auto MAX_THREAD = static_cast<int>(doulci::max_cap_threads());
 
+/** @namespace doulci
+ * Project namespace
+ */
 namespace doulci
 {
+	/** @namespace doulci::sys
+	 * Implements low-level and/or general components.
+	 */
 	namespace sys
 	{
-		// CONTAINER CLASS FOR...
-		//  anything that needs to be put inside the file assoc.'d with temp_uid
+		/** @struct tf_content
+		 *
+		 * 
+		 * @brief Container class for anything that needs to be put inside the file associated with temp_uid
+		 * @tparam A templated class that __must__ have a template def. formed [like so.](@ref tf_limit)
+		 * @note You can access content directly or with the accessor. __(keep reading)__
+		 * @remarks   class A   __must__ have a member:   _A   .
+		 */
+		
 		template<class A>
 		struct tf_content
 		{
+			/** @typedef type_content
+			 *
+			 * @brief The type of content in this here container. Compliant classi __must__ have an    _A typdef   member.
+			 * @ref tf_limit
+			 */
 			typedef typename A::_A type_content;
 			
 			A *content;
@@ -34,6 +68,13 @@ namespace doulci
 			virtual ~tf_content() { delete content; }
 			virtual const A& get_content() { static A x(*content); return x; }
 
+			/** __Wr__ __out__ passed data of   type_content  to the   temp_uid   file
+			 * @brief output data to temp_uid's   std::fstream  
+			 * @tparam T The type that   type_content   shall be casted to
+			 * @param stream A reference to a   std::fstream  
+			 * @param pcontent data to go into the file
+			 * @param newline ...
+			 */
 			template <class T>
 			void wrout(auto& stream, type_content pcontent, bool newline=true)
 			{
@@ -43,6 +84,29 @@ namespace doulci
 				}
 				stream << static_cast<T>(pcontent) << '\n';
 			}
+
+			/** __Wr__ __out__ passed data of   type_content  to the   temp_uid   file
+			 * @brief output data to temp_uid's   std::fstream  
+			 * @tparam T The type that   type_content   shall be casted to
+			 * @param stream A reference to a   std::fstream  
+			 * @param pcontent data to go into the file
+			 * @param newline ...
+			 * @param pre_call @ref pre_call_cb
+			 * @anchor pre_call_cb
+			 * @htmlonly
+			  <div style="display: block; position:relative; background-color: #f1f8ff; color: #586069; padding: 4 4 4 4;" id="pre_call_cb">
+			  <p> The callback is as follows:</p>
+			 <p>
+			  		<strong>pre_call(std::fstream& p1, int *offset_file);</strong>
+			  		<span class="paramname"><blockquote>
+						p1 -- std::fstream<br>
+						offset_file -- ptr to offset<br>
+					</blockquote>
+					</span>
+				</p>
+			 </div>
+			 * @endhtmlonly
+			 */
 			template <class T>
 			void wrout(auto& stream, type_content pcontent, bool newline=true, void(*pre_call)(void*,int*)=nullptr)
 			{
@@ -57,18 +121,33 @@ namespace doulci
 				stream << static_cast<T>(pcontent) << '\n';
 			}
 		};
-		
-		// CONTAINER ITEMS IN CONTAINERS OF ABOVE MUST INHERIT YE BELOW
+
+		/** @struct tf_seekable
+		 * @brief Interface class for use with   tf_content  
+		 * ITEMS IN CONTAINERS OF ABOVE MUST INHERIT YE BELOW
+		 */
 		struct tf_seekable
 		{
 			virtual int seekpos(void) = 0;
 		};
-		// Thread limit we'll put into the file and f*** wit'
-		// ANYTHING NEEDING TO BE USED WITH tf_limit MUST HAVE `_A` typedef
+		
+		/** @struct tf_limit
+		 * 
+		 * @implements tf_content
+		 * 
+		 * @remarks ANYTHING NEEDING TO BE USED WITH tf_limit MUST HAVE `_A` typedef
+		 * @note Please look carefully at the template def., from rite 2 left.
+		 * @tparam N maximum number of threads to have in our pool
+		 * @tparam A the typename of template parameter 1.
+		 */
 		template<int N, typename A = int>
 		struct tf_limit : public tf_seekable
 		{
-			/***** REQUIRED FOR tf_content UTILIZATION ******/
+			/** @typedef _A
+			 *
+			 * @see tf_content
+			 * @warning REQUIRED by @relates tf_content
+			 */
 			typedef A _A;
 			
 			static const int limit()
@@ -76,10 +155,13 @@ namespace doulci
 				return N;
 			}
 			
+			/** Implentor of the interface as per   tf_seekable  
+			 * @retval seek_position An integer that is the offset to the   tf_seekable  's location
+			 */
 			virtual int seekpos(void) { return 3; }
 			virtual ~tf_limit() { }
 		};
-
+		
 		// Exception class for problems occurring with the `temp_uid` class
 		class exception_tfuid : public std::exception
 		{
