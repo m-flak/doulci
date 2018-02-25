@@ -43,12 +43,30 @@ namespace doulci
 				}
 				stream << static_cast<T>(pcontent) << '\n';
 			}
+			template <class T>
+			void wrout(auto& stream, type_content pcontent, bool newline=true, void(*pre_call)(void*,int*)=nullptr)
+			{
+				int pozzed = content->seekpos();
+				if (pre_call)
+					pre_call((void*)&stream, &pozzed);
+				
+				if (!newline)
+				{
+					stream << static_cast<T>(pcontent);
+				}
+				stream << static_cast<T>(pcontent) << '\n';
+			}
 		};
 		
+		// CONTAINER ITEMS IN CONTAINERS OF ABOVE MUST INHERIT YE BELOW
+		struct tf_seekable
+		{
+			virtual int seekpos(void) = 0;
+		};
 		// Thread limit we'll put into the file and f*** wit'
 		// ANYTHING NEEDING TO BE USED WITH tf_limit MUST HAVE `_A` typedef
 		template<int N, typename A = int>
-		struct tf_limit
+		struct tf_limit : public tf_seekable
 		{
 			/***** REQUIRED FOR tf_content UTILIZATION ******/
 			typedef A _A;
@@ -57,6 +75,9 @@ namespace doulci
 			{
 				return N;
 			}
+			
+			virtual int seekpos(void) { return 3; }
+			virtual ~tf_limit() { }
 		};
 
 		// Exception class for problems occurring with the `temp_uid` class
@@ -171,7 +192,17 @@ namespace doulci
 
 				handle_existent = true;
 				
-				thread_limit.wrout<int>(file_handle, thread_limit.content->limit());
+				thread_limit.wrout<int>(file_handle, thread_limit.content->limit(), true, [](void* p1, int *p2){
+					auto *pp1 = reinterpret_cast<decltype(file_handle)*>(p1);
+					if (pp1->tellp() == 0)
+						if (pp1->tellp() == pp1->tellg())
+							return;
+				
+					if (pp1->tellp() != *p2)
+						pp1->seekp(*p2);
+					if (pp1->tellg() != *p2)
+						pp1->seekg(*p2);
+				});
 			}
 
 			std::string fqn_path;
