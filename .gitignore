@@ -4,3 +4,6 @@ doulci
 #etc...
 *.o
 
+#doxxx
+docs/doxygen.cfg
+
