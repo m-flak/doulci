@@ -22,17 +22,37 @@ namespace doulci
 {
 	namespace sys
 	{
+		// CONTAINER CLASS FOR...
+		//  anything that needs to be put inside the file assoc.'d with temp_uid
 		template<class A>
 		struct tf_content
 		{
+			typedef typename A::_A type_content;
+			
 			A *content;
 			tf_content() { content = new A(); }
 			virtual ~tf_content() { delete content; }
 			virtual const A& get_content() { static A x(*content); return x; }
+
+			template <class T>
+			void wrout(auto& stream, type_content pcontent, bool newline=true)
+			{
+				if (!newline)
+				{
+					stream << static_cast<T>(pcontent);
+				}
+				stream << static_cast<T>(pcontent) << '\n';
+			}
 		};
-		template<int N>
+		
+		// Thread limit we'll put into the file and f*** wit'
+		// ANYTHING NEEDING TO BE USED WITH tf_limit MUST HAVE `_A` typedef
+		template<int N, typename A = int>
 		struct tf_limit
 		{
+			/***** REQUIRED FOR tf_content UTILIZATION ******/
+			typedef A _A;
+			
 			static const int limit()
 			{
 				return N;
@@ -150,6 +170,8 @@ namespace doulci
 				}
 
 				handle_existent = true;
+				
+				thread_limit.wrout<int>(file_handle, thread_limit.content->limit());
 			}
 
 			std::string fqn_path;
